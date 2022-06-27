@@ -38,7 +38,11 @@ function bigint.Construct(value, base)
     elseif type(value) == "number" then
         return bigint.FromNumber(value);
     elseif type(value) == "table" then
-        return bigint.FromArray(value);
+        if bigint.IsBigInt(value) then
+            return value:Copy();
+        else
+            return bigint.FromArray(value);
+        end
     else
         error("cannot construct bigint from type: " .. type(value));
     end
@@ -164,6 +168,14 @@ function bigint.IsBigInt(obj)
     return getmetatable(obj) == bigint_mt;
 end
 
+function bigint.EnsureBigInt(obj)
+    if getmetatable(obj) == bigint_mt then
+        return obj;
+    else
+        return bigint.Construct(obj);
+    end
+end
+
 --##### ARITHMETIC OPERATORS #####--
 
 function bigint:Unm()
@@ -187,6 +199,8 @@ function bigint:Abs()
 end
 
 function bigint:Add(other)
+    other = bigint.EnsureBigInt(other);
+
     -- addition of 0
     if other.sign == 0 then
         return self;
@@ -272,10 +286,13 @@ function bigint:Add(other)
 end
 
 function bigint:Sub(other)
+    other = bigint.EnsureBigInt(other);
     return self:Add(other:Unm());
 end
 
 function bigint:Mul(other)
+    other = bigint.EnsureBigInt(other);
+
     -- multiplication by 0
     if self.sign == 0 or other.sign == 0 then
         return bigint.Zero;
@@ -348,6 +365,8 @@ function bigint:Mul(other)
 end
 
 function bigint:DivWithRemainder(other, ignoreRemainder)
+    other = bigint.EnsureBigInt(other);
+
     -- division of/by 0
     if self.sign == 0 then
         return self, self;
@@ -482,6 +501,8 @@ function bigint:Mod(other)
 end
 
 function bigint:Pow(other)
+    other = bigint.EnsureBigInt(other);
+
     if other.sign == 0 then
         return bigint.One;
     elseif other.sign == -1 then
@@ -524,7 +545,7 @@ end
 --##### BITWISE OPERATORS #####--
 
 function bigint:Shr(n)
-    if type(n) == "table" then
+    if bigint.IsBigInt(n) then
         n = n:ToNumber();
     end
     if self.sign == 0 or n == 0 then
@@ -576,7 +597,7 @@ function bigint:Shr(n)
 end
 
 function bigint:Shl(n)
-    if type(n) == "table" then
+    if bigint.IsBigInt(n) then
         n = n:ToNumber();
     end
     if self.sign == 0 or n == 0 then
@@ -621,6 +642,8 @@ function bigint:Shl(n)
 end
 
 function bigint:Bor(other)
+    other = bigint.EnsureBigInt(other);
+
     if other.sign == 0 then
         return self;
     end
@@ -645,11 +668,11 @@ function bigint:Bor(other)
         byte = byte or 0;
         local otherByte = other.bytes[i] or 0;
         for _ = 1, 8, 1 do
-            if (byte % 2) == 1 or (otherByte % 2) == 1 then
+            if (byte % 2) >= 1 or (otherByte % 2) >= 1 then
                 result = result + bit;
             end
-            byte = math_floor(byte / 2);
-            otherByte = math_floor(otherByte / 2);
+            byte = byte / 2;
+            otherByte = otherByte / 2;
             bit = bit * 2;
         end
         if result ~= origByte then
@@ -664,6 +687,8 @@ function bigint:Bor(other)
 end
 
 function bigint:Band(other)
+    other = bigint.EnsureBigInt(other);
+
     if self.sign == 0 then
         return self;
     end
@@ -688,11 +713,11 @@ function bigint:Band(other)
         local origByte = byte;
         local otherByte = other.bytes[i] or 0;
         for _ = 1, 8, 1 do
-            if (byte % 2) == 1 and (otherByte % 2) == 1 then
+            if (byte % 2) >= 1 and (otherByte % 2) >= 1 then
                 result = result + bit;
             end
-            byte = math_floor(byte / 2);
-            otherByte = math_floor(otherByte / 2);
+            byte = byte / 2;
+            otherByte = otherByte / 2;
             bit = bit * 2;
         end
         if result ~= origByte then
@@ -715,6 +740,8 @@ function bigint:Band(other)
 end
 
 function bigint:Bxor(other)
+    other = bigint.EnsureBigInt(other);
+
     if other.sign == 0 then
         return self;
     end
@@ -739,11 +766,11 @@ function bigint:Bxor(other)
         byte = byte or 0;
         local otherByte = other.bytes[i] or 0;
         for _ = 1, 8, 1 do
-            if (byte % 2) ~= (otherByte % 2) then
+            if ((byte % 2) >= 1) ~= ((otherByte % 2) >= 1) then
                 result = result + bit;
             end
-            byte = math_floor(byte / 2);
-            otherByte = math_floor(otherByte / 2);
+            byte = byte / 2;
+            otherByte = otherByte / 2;
             bit = bit * 2;
         end
         this.bytes[i] = result;
@@ -765,7 +792,7 @@ function bigint:SetBits(...)
     local byteCount = #self.bytes;
     for i = 1, count, 1 do
         local bit = arg[i];
-        if type(bit) == "table" then
+        if bigint.IsBigInt(n) then
             bit = bit:ToNumber();
         end
         bit = bit - 1;
@@ -813,7 +840,7 @@ function bigint:UnsetBits(...)
     local this;
     for i = 1, count, 1 do
         local bit = arg[i];
-        if type(bit) == "table" then
+        if bigint.IsBigInt(n) then
             bit = bit:ToNumber();
         end
         bit = bit - 1;
@@ -844,8 +871,8 @@ function bigint:UnsetBits(...)
 end
 
 function bigint:GetBit(i)
-    if type(n) == "table" then
-        n = n:ToNumber();
+    if bigint.IsBigInt(i) then
+        i = i:ToNumber();
     end
     if i < 1 then
         return nil;
@@ -869,6 +896,8 @@ end
 
 -- compare unsigned
 function bigint:CompareU(other)
+    other = bigint.EnsureBigInt(other);
+
     local byteCount = #self.bytes;
     local otherByteCount = #other.bytes;
 
@@ -890,6 +919,8 @@ function bigint:CompareU(other)
 end
 
 function bigint:Compare(other)
+    other = bigint.EnsureBigInt(other);
+
     if self.sign > other.sign then
         return 1;
     elseif self.sign < other.sign then
@@ -1018,6 +1049,10 @@ end
 
 -- general base conversion
 function bigint:ToBase(base)
+    if bigint.IsBigInt(base) then
+        base = base:ToNumber();
+    end
+
     if base == 2 then
         return self:ToBin(true);
     elseif base == 16 then
@@ -1063,15 +1098,21 @@ end
 
 --##### METATABLE #####--
 
+local function ensureSelfIsBigInt(f)
+    return function(self, ...)
+        return f(bigint.EnsureBigInt(self), ...);
+    end
+end
+
 bigint_mt = {
     __index = bigint,
     __unm = bigint.Unm,
-    __add = bigint.Add,
-    __sub = bigint.Sub,
-    __mul = bigint.Mul,
-    __div = bigint.Div,
-    __mod = bigint.Mod,
-    __pow = bigint.Pow,
+    __add = ensureSelfIsBigInt(bigint.Add),
+    __sub = ensureSelfIsBigInt(bigint.Sub),
+    __mul = ensureSelfIsBigInt(bigint.Mul),
+    __div = ensureSelfIsBigInt(bigint.Div),
+    __mod = ensureSelfIsBigInt(bigint.Mod),
+    __pow = ensureSelfIsBigInt(bigint.Pow),
 };
 
 --##### HELPERS #####--
@@ -1148,7 +1189,7 @@ function bigint:ExactLog2()
     while self.bytes[i] ~= nil do
         local byte = self.bytes[i];
         for _ = 1, 8, 1 do
-            if byte % 2 == 0 then
+            if byte % 2 < 1 then
                 if not foundOne then
                     power = power + 1;
                 end
@@ -1158,28 +1199,11 @@ function bigint:ExactLog2()
                 end
                 foundOne = true;
             end
-            byte = math_floor(byte / 2);
+            byte = byte / 2;
         end
         i = i + 1;
     end
     return power;
-end
-
-function bigint:Reverse(size)
-    local this = self:CopyIfImmutable();
-
-    if size == nil then
-        size = #this.bytes;
-    else
-        -- pad with 0s
-        for i = #this.bytes + 1, size, 1 do
-            this.bytes[i] = 0;
-        end
-    end
-
-    table_reverse(this.bytes);
-    this:Rstrip();
-    return this;
 end
 
 function bigint:Rstrip()
