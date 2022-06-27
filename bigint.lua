@@ -7,6 +7,8 @@ local bigint = {};
 local bigint_mt;
 local bigint_digits;
 local bigint_comparatorMap;
+local bigint_rstrip;
+local bigint_ensureBigInt;
 local table_reverse;
 local table_copy;
 
@@ -168,14 +170,6 @@ function bigint.IsBigInt(obj)
     return getmetatable(obj) == bigint_mt;
 end
 
-function bigint.EnsureBigInt(obj)
-    if getmetatable(obj) == bigint_mt then
-        return obj;
-    else
-        return bigint.Construct(obj);
-    end
-end
-
 --##### ARITHMETIC OPERATORS #####--
 
 function bigint:Unm()
@@ -199,7 +193,7 @@ function bigint:Abs()
 end
 
 function bigint:Add(other)
-    other = bigint.EnsureBigInt(other);
+    other = bigint_ensureBigInt(other);
 
     -- addition of 0
     if other.sign == 0 then
@@ -277,7 +271,7 @@ function bigint:Add(other)
         this.bytes[byteCount + 1] = carry
     end
     if subtract then
-        this:Rstrip();
+        bigint_rstrip(this);
     end
     if changeSign then
         this.sign = -this.sign;
@@ -286,12 +280,12 @@ function bigint:Add(other)
 end
 
 function bigint:Sub(other)
-    other = bigint.EnsureBigInt(other);
+    other = bigint_ensureBigInt(other);
     return self:Add(other:Unm());
 end
 
 function bigint:Mul(other)
-    other = bigint.EnsureBigInt(other);
+    other = bigint_ensureBigInt(other);
 
     -- multiplication by 0
     if self.sign == 0 or other.sign == 0 then
@@ -365,7 +359,7 @@ function bigint:Mul(other)
 end
 
 function bigint:DivWithRemainder(other, ignoreRemainder)
-    other = bigint.EnsureBigInt(other);
+    other = bigint_ensureBigInt(other);
 
     -- division of/by 0
     if self.sign == 0 then
@@ -463,7 +457,7 @@ function bigint:DivWithRemainder(other, ignoreRemainder)
     local otherSign = another.sign;
     local divSign = sign * otherSign;
 
-    this:Rstrip();
+    bigint_rstrip(this);
     if this.bytes[1] == nil then
         this.sign = 0;
     end
@@ -478,7 +472,7 @@ function bigint:DivWithRemainder(other, ignoreRemainder)
     table_reverse(result);
     table_copy(another.bytes, result);
     another.sign = divSign;
-    another:Rstrip();
+    bigint_rstrip(another);
 
     if another.bytes[1] == nil then
         another.sign = 0;
@@ -501,7 +495,7 @@ function bigint:Mod(other)
 end
 
 function bigint:Pow(other)
-    other = bigint.EnsureBigInt(other);
+    other = bigint_ensureBigInt(other);
 
     if other.sign == 0 then
         return bigint.One;
@@ -642,7 +636,7 @@ function bigint:Shl(n)
 end
 
 function bigint:Bor(other)
-    other = bigint.EnsureBigInt(other);
+    other = bigint_ensureBigInt(other);
 
     if other.sign == 0 then
         return self;
@@ -687,7 +681,7 @@ function bigint:Bor(other)
 end
 
 function bigint:Band(other)
-    other = bigint.EnsureBigInt(other);
+    other = bigint_ensureBigInt(other);
 
     if self.sign == 0 then
         return self;
@@ -731,7 +725,7 @@ function bigint:Band(other)
     if this == nil then
         this = self;
     else
-        this:Rstrip();
+        bigint_rstrip(this);
         if this.bytes[1] == nil then
             this.sign = 0;
         end
@@ -740,7 +734,7 @@ function bigint:Band(other)
 end
 
 function bigint:Bxor(other)
-    other = bigint.EnsureBigInt(other);
+    other = bigint_ensureBigInt(other);
 
     if other.sign == 0 then
         return self;
@@ -775,7 +769,7 @@ function bigint:Bxor(other)
         end
         this.bytes[i] = result;
     end
-    this:Rstrip();
+    bigint_rstrip(this);
     if this.bytes[1] == nil then
         this.sign = 0;
     end
@@ -862,7 +856,7 @@ function bigint:UnsetBits(...)
     if this == nil then
         this = self;
     else
-        this:Rstrip();
+        bigint_rstrip(this);
         if this.bytes[1] == nil then
             this.sign = 0;
         end
@@ -896,7 +890,7 @@ end
 
 -- compare unsigned
 function bigint:CompareU(other)
-    other = bigint.EnsureBigInt(other);
+    other = bigint_ensureBigInt(other);
 
     local byteCount = #self.bytes;
     local otherByteCount = #other.bytes;
@@ -919,7 +913,7 @@ function bigint:CompareU(other)
 end
 
 function bigint:Compare(other)
-    other = bigint.EnsureBigInt(other);
+    other = bigint_ensureBigInt(other);
 
     if self.sign > other.sign then
         return 1;
@@ -974,7 +968,7 @@ end
 
 function bigint:ToNumber()
     if self:CompareU(bigint.MaxNumber) == 1 then
-        error("integer too big to convert to float");
+        error("integer too big to convert to lua number");
     end
     local total = 0;
     for i = #self.bytes, 1, -1 do
@@ -1100,7 +1094,7 @@ end
 
 local function ensureSelfIsBigInt(f)
     return function(self, ...)
-        return f(bigint.EnsureBigInt(self), ...);
+        return f(bigint_ensureBigInt(self), ...);
     end
 end
 
@@ -1136,7 +1130,6 @@ function bigint:Copy()
     local copy = bigint.New();
     table_copy(copy.bytes, self.bytes);
     copy.sign = self.sign;
-    --print("bigint:Copy()")
     return copy;
 end
 
@@ -1206,7 +1199,7 @@ function bigint:ExactLog2()
     return power;
 end
 
-function bigint:Rstrip()
+function bigint_rstrip(self)
     local i = #self.bytes;
     while self.bytes[i] == 0 do
         self.bytes[i] = nil;
@@ -1214,6 +1207,14 @@ function bigint:Rstrip()
     end
     if i == 0 then
         self.sign = 0;
+    end
+end
+
+function bigint_ensureBigInt(obj)
+    if getmetatable(obj) == bigint_mt then
+        return obj;
+    else
+        return bigint.Construct(obj);
     end
 end
 
