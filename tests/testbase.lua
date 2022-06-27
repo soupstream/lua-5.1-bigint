@@ -55,6 +55,19 @@ end
 function testbase.dprint(obj)
     print(testbase.dtostring(obj));
 end
+function testbase.toboolean(str)
+    if str == nil then
+        return nil;
+    end
+    str = str:lower();
+    if str == "true" then
+        return true;
+    elseif str == "false" then
+        return false;
+    else
+        error("not a bool");
+    end
+end
 function testbase.getEnv()
     local imports = {
         [importPath] = package.loaded[importPath],

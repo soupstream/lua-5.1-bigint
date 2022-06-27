@@ -21,6 +21,13 @@ local string_sub = string.sub;
 local string_byte = string.byte;
 local string_char = string.char;
 local string_format = string.format;
+local string_dump = string.dump;
+local unpack = unpack;
+local getmetatable = getmetatable;
+local setmetatable = setmetatable;
+local tonumber = tonumber;
+local type = type;
+local loadstring = loadstring;
 
 --##### CONSTRUCTORS #####--
 
@@ -35,16 +42,19 @@ function bigint.New()
 end
 
 function bigint.Construct(value, base)
-    if type(value) == "string" then
+    local valueType = type(value);
+    if valueType == "string" then
         return bigint.FromString(value, base);
-    elseif type(value) == "number" then
+    elseif valueType == "number" then
         return bigint.FromNumber(value);
-    elseif type(value) == "table" then
+    elseif valueType == "table" then
         if bigint.IsBigInt(value) then
-            return value:Copy();
+            return value;
         else
             return bigint.FromArray(value);
         end
+    elseif valueType == "ui64" then
+        return bigint.FromUI64(value);
     else
         error("cannot construct bigint from type: " .. type(value));
     end
@@ -124,15 +134,6 @@ function bigint.FromString(value, base)
     end
 end
 
-function bigint.FromArray(array)
-    local self = bigint.New();
-    self.bytes = table_copy(array);
-    if #self.bytes ~= 0 then
-        self.sign = 1;
-    end
-    return self;
-end
-
 function bigint.FromNumber(value)
     local self = bigint.New();
     if value < 0 then
@@ -157,13 +158,31 @@ function bigint.FromNumber(value)
     return self;
 end
 
+function bigint.FromArray(array, littleEndian)
+    local self = bigint.New();
+    self.bytes = table_copy(array);
+    if not littleEndian then
+        table_reverse(self.bytes);
+    end
+    self.sign = 1;
+    bigint_rstrip(self);
+    return self;
+end
+
 function bigint.FromBytes(bytes, littleEndian)
     local self = bigint.New();
     self.bytes = {string_byte(bytes, 1, #bytes)};
-    if #self.bytes ~= 0 then
-        self.sign = 1;
+    if not littleEndian then
+        table_reverse(self.bytes);
     end
+    self.sign = 1;
+    bigint_rstrip(self);
     return self;
+end
+
+-- parse hex from tostring of HavokScript ui64 value
+function bigint.FromUI64(value)
+    return bigint.FromString(tostring(value));
 end
 
 function bigint.IsBigInt(obj)
@@ -458,9 +477,6 @@ function bigint:DivWithRemainder(other, ignoreRemainder)
     local divSign = sign * otherSign;
 
     bigint_rstrip(this);
-    if this.bytes[1] == nil then
-        this.sign = 0;
-    end
 
     -- if remainder is negative, add divisor to make it positive
     if not ignoreRemainder then
@@ -474,9 +490,6 @@ function bigint:DivWithRemainder(other, ignoreRemainder)
     another.sign = divSign;
     bigint_rstrip(another);
 
-    if another.bytes[1] == nil then
-        another.sign = 0;
-    end
     if this.sign ~= 0 and otherSign == -1 then
         this.sign = -1;
     end
@@ -726,9 +739,6 @@ function bigint:Band(other)
         this = self;
     else
         bigint_rstrip(this);
-        if this.bytes[1] == nil then
-            this.sign = 0;
-        end
     end
     return this;
 end
@@ -770,9 +780,6 @@ function bigint:Bxor(other)
         this.bytes[i] = result;
     end
     bigint_rstrip(this);
-    if this.bytes[1] == nil then
-        this.sign = 0;
-    end
     return this;
 end
 
@@ -857,9 +864,6 @@ function bigint:UnsetBits(...)
         this = self;
     else
         bigint_rstrip(this);
-        if this.bytes[1] == nil then
-            this.sign = 0;
-        end
     end
     return this;
 end
@@ -960,10 +964,36 @@ end
 
 --##### CONVERSION #####--
 
-function bigint:ToBytes()
-    local bytes = table_copy(self.bytes);
-    table_reverse(bytes);
-    return string_char(unpack(bytes));
+-- convert to string of bytes
+function bigint:ToBytes(size, littleEndian)
+    -- avoid copying array
+    local bytes = self.bytes;
+    local byteCount = #bytes;
+    size = size or byteCount;
+    if byteCount < size then
+        for i = byteCount + 1, size, 1 do
+            bytes[i] = 0;
+        end
+    end
+
+    local byteStr;
+    if littleEndian then
+        byteStr = string_char(unpack(bytes, 1, size));
+    else
+        table_reverse(bytes);
+        if byteCount <= size then
+            byteStr = string_char(unpack(bytes));
+        else
+            byteStr = string_char(unpack(bytes, byteCount - size + 1, byteCount));
+        end
+        table_reverse(bytes);
+    end
+
+    -- restore original state
+    for i = size, byteCount + 1, -1 do
+        bytes[i] = nil;
+    end
+    return byteStr;
 end
 
 function bigint:ToNumber()
@@ -1038,7 +1068,7 @@ function bigint:ToBin(noPrefix)
 end
 
 function bigint:ToDec()
-    return self:Base(10);
+    return self:ToBase(10);
 end
 
 -- general base conversion
@@ -1090,6 +1120,26 @@ function bigint:ToBase(base)
     return result;
 end
 
+-- converts to HavokScript UI64 type
+function bigint:ToUI64()
+    if bigint.internal.ui64 == nil then
+        bigint.internal.ui64 = {};
+        -- bytecode for returning a UI64 constant
+        bigint.internal.ui64Bytecode = {
+            "\27LuaQ\14\0\4\b\4\4\0\3\0\0\0\0\r\0\0\0\0\0\0\0\5TNIL\0\0\0\0\1\0\0\0\tTBOOLEAN\0\0\0\0\2\0\0\0\15TLIGHTUSERDATA\0\0\0\0\3\0\0\0\bTNUMBER\0\0\0\0\4\0\0\0\bTSTRING\0\0\0\0\5\0\0\0\7TTABLE\0\0\0\0\6\0\0\0\nTFUNCTION\0\0\0\0\7\0\0\0\nTUSERDATA\0\0\0\0\b\0\0\0\bTTHREAD\0\0\0\0\t\0\0\0\11TIFUNCTION\0\0\0\0\n\0\0\0\11TCFUNCTION\0\0\0\0\11\0\0\0\6TUI64\0\0\0\0\f\0\0\0\bTSTRUCT\0\0\0\0\0\0\0\0\0\0\0\0\0\2\0\0\0\0\0\0\0\2_2\0\0\0\18\4\0\0\0\0\0\1\11",
+            "CONSTANT",
+            "\0\0\0\0\0\0\0\0\0\0\0\1\0\0\0\0\0\0\0\0"
+        };
+    end
+    bigint.internal.ui64Bytecode[2] = self:ToBytes(8);
+    local f = loadstring(table_concat(bigint.internal.ui64Bytecode));
+    if f == nil then
+        error("loadstring returned nil");
+    else
+        return f();
+    end
+end
+
 --##### METATABLE #####--
 
 local function ensureSelfIsBigInt(f)
@@ -1115,7 +1165,15 @@ bigint.Zero = bigint.New();
 bigint.One = bigint.FromNumber(1);
 bigint.NegOne = bigint.FromNumber(-1);
 bigint.Two = bigint.FromNumber(2);
-bigint.MaxNumber = bigint.FromString("0xFFFFFF");   -- max accurate integer that can be represented by a float
+
+-- determine the max accurate integer supported by this build of Lua
+if 0x1000000 == 0x1000001 then
+    bigint.MaxNumber = bigint.FromString("0xffffff");           -- max integer that can be accurately represented by a float
+else
+    bigint.MaxNumber = bigint.FromString("0x1FFFFFFFFFFFFF");   -- double
+end
+
+bigint.internal = {};
 
 bigint_digits = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"};
 bigint_comparatorMap = {

@@ -120,3 +120,26 @@ def toBase(n, b):
         n //= b
     return sign + "".join(digits[::-1])
 
+def byteArrayToInt(arr, littleEndian):
+    if littleEndian:
+        arr = reversed(arr)
+    n = 0
+    for b in arr:
+        n *= 256
+        n += b
+    return n
+
+def intToByteArray(n, littleEndian, size=None):
+    arr = []
+    n = abs(n)
+    while n > 0:
+        arr.append(n % 256)
+        n = n // 256
+    size = size or len(arr)
+    if len(arr) <= size:
+        arr += [0] * (size - len(arr))
+    else:
+        arr = arr[:size]
+    if not littleEndian:
+        arr.reverse()
+    return arr

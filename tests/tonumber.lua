@@ -5,5 +5,5 @@ local bigint, testbase = require("testbase")();
 local big = bigint(arg[1]);
 testbase.register();
 local result = big:ToNumber();
-print(result);
+print(string.format("%d", result));
 testbase.check();

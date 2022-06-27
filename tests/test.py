@@ -72,6 +72,7 @@ def testFromStringHex(iterations=1000):
     test(0, "-0x0")
     test(1)
     test(256)
+    test(-0xdeadbeef, "-0x00000000000deadbeef")
     for n in srandexpgen(iterations):
         test(n)
 
@@ -84,21 +85,65 @@ def testFromStringBin(iterations=1000):
     test(0, "-0b0")
     test(1)
     test(256)
+    test(-0b1101010101011011101010101001, "-0b000000000000000001101010101011011101010101001")
     for n in srandexpgen(iterations):
         test(n)
 
 def testFromStringBase(iterations=1000):
-    def test(n, base):
+    def test(n, base, strOverride=None):
         nstr = toBase(n, base)
-        result = runLua("fromstring.lua", nstr, str(base))
+        result = runLua("fromstring.lua", strOverride or nstr, str(base))
         checkTest(hex(n), result, nstr + " base " + str(base))
     for base in range(2, 36 + 1):
         test(-1, base)
         test(0, base)
         test(1, base)
         test(256, base)
+        test(-0xdeadbeef, base, "-0000000000000000" + toBase(0xdeadbeef, base))
     for n, base in zip(srandexpgen(iterations), randgen(iterations, 2, 36 + 1)):
         test(n, base)
+
+def testFromNumber(iterations=1000):
+    def test(n):
+        result = runLua("fromnumber.lua", str(n))
+        checkTest(hex(n), result)
+    test(-1)
+    test(0)
+    test(1)
+    test(256)
+    test(-0xdeadbeef)
+    for n in srandexpgen(iterations, 24):
+        test(n)
+
+def testFromArray(iterations=1000):
+    def test(arr, littleEndian):
+        arrStrs = [str(x) for x in arr]
+        endianStr = "LE" if littleEndian else "BE"
+        result = runLua("fromarray.lua", str(littleEndian), *arrStrs)
+        checkTest(hex(byteArrayToInt(arr, littleEndian)), result, ",".join(arrStrs) + f" ({endianStr})")
+    for endianness in [True, False]:
+        test([], endianness)
+        test([0], endianness)
+        test([1], endianness)
+        test([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0], endianness)
+    for n in randexpgen(iterations):
+        endianness = random.choice([True, False])
+        test(intToByteArray(n, endianness), endianness)
+
+def testFromBytes(iterations=1000):
+    def test(arr, littleEndian):
+        arrStrs = [str(x) for x in arr]
+        endianStr = "LE" if littleEndian else "BE"
+        result = runLua("frombytes.lua", str(littleEndian), *arrStrs)
+        checkTest(hex(byteArrayToInt(arr, littleEndian)), result, ",".join(arrStrs) + f" ({endianStr})")
+    for endianness in [True, False]:
+        test([], endianness)
+        test([0], endianness)
+        test([1], endianness)
+        test([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0], endianness)
+    for n in randexpgen(iterations):
+        endianness = random.choice([True, False])
+        test(intToByteArray(n, endianness), endianness)
 
 def testAdd(iterations=1000):
     def test(n1, n2):
@@ -201,6 +246,34 @@ def testToBase(iterations=1000):
         test(-1, base)
     for n, base in zip(srandexpgen(iterations), randgen(iterations, 2, 36 + 1)):
         test(n, base)
+
+def testToNumber(iterations=1000):
+    def test(n):
+        result = runLua("tonumber.lua", hex(n))
+        checkTest(str(n), result)
+    test(0)
+    test(1)
+    test(-1)
+    test(255)
+    test(256)
+    for n in srandexpgen(iterations, 24):
+        test(n)
+
+def testToBytes(iterations=1000):
+    def test(n, littleEndian, size=None):
+        arr = intToByteArray(n, littleEndian, size)
+        arrStr = ",".join([str(x) for x in arr])
+        endianStr = "LE" if littleEndian else "BE"
+        result = runLua("tobytes.lua", hex(n), str(size) if size else "", str(littleEndian))
+        checkTest(arrStr, result, hex(n) + f" to {size} bytes ({endianStr})")
+    for endianness in [False, True]:
+        test(0, endianness)
+        test(1, endianness)
+        test(-1, endianness)
+        test(0, endianness, 0)
+        test(0, endianness, 10)
+    for n in srandexpgen(iterations):
+        test(n, random.choice([True, False]), random.randrange(16))
 
 def testBxor(iterations=1000):
     def test(n1, n2):
@@ -376,7 +449,12 @@ testsToRun = [
     testFromStringHex,
     testFromStringBin,
     testFromStringBase,
+    testFromNumber,
+    testFromArray,
+    testFromBytes,
     testToBase,
+    testToNumber,
+    testToBytes,
     testAdd,
     testSub,
     testMul,
