@@ -143,3 +143,13 @@ def intToByteArray(n, littleEndian, size=None):
     if not littleEndian:
         arr.reverse()
     return arr
+
+def castUnsigned(n, byteCount):
+    if n < 0:
+        return n + (2 ** (byteCount * 8))
+    return n
+
+def castSigned(n, byteCount):
+    if n >= 2 ** (byteCount * 8 - 1):
+        return n - (2 ** (byteCount * 8))
+    return n

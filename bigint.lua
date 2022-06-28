@@ -535,7 +535,7 @@ function bigint:Pow(other)
 
     -- multiply by self repeatedly
     local this = self:Copy();
-    this.immutable = true;
+    this.mutable = true;
     local another = other:CopyIfImmutable():Abs():Add(bigint.NegOne);
     local otherMutable = another.mutable;
     another.mutable = true;
@@ -543,10 +543,55 @@ function bigint:Pow(other)
         this = this:Mul(self);
         another = another:Add(bigint.NegOne);
     end
-    this.immutable = false;
+    this.mutable = false;
     another.mutable = otherMutable;
     this.sign = sign;
     return this;
+end
+
+-- calculate log2 by finding highest 1 bit
+function bigint:Log2()
+    if self.sign == 0 then
+        return nil;
+    end
+
+    local byteCount = #self.bytes;
+    local byte = self.bytes[byteCount];
+    local bitNum = (byteCount - 1) * 8;
+    while byte >= 1 do
+        bitNum = bitNum + 1;
+        byte = byte / 2;
+    end
+    return bigint.FromNumber(bitNum - 1);
+end
+
+-- return log2 if it's an integer, else nil
+function bigint:ExactLog2()
+    if self.sign == 0 then
+        return nil;
+    end
+
+    local i = 1;
+    local power = 0;
+    local foundOne = false;
+    while self.bytes[i] ~= nil do
+        local byte = self.bytes[i];
+        for _ = 1, 8, 1 do
+            if byte % 2 < 1 then
+                if not foundOne then
+                    power = power + 1;
+                end
+            else
+                if foundOne then
+                    return nil;
+                end
+                foundOne = true;
+            end
+            byte = byte / 2;
+        end
+        i = i + 1;
+    end
+    return power;
 end
 
 --##### BITWISE OPERATORS #####--
@@ -783,6 +828,34 @@ function bigint:Bxor(other)
     return this;
 end
 
+function bigint:Bnot(size)
+    local this = self:CopyIfImmutable();
+    local byteCount = #self.bytes;
+    if this.sign == 0 then
+        this.bytes[1] = 0xff;
+        this.sign = 1;
+        return this;
+    end
+    for i = 1, byteCount, 1 do
+        local result = 0;
+        local bit = 1;
+        local byte = this.bytes[i];
+        for _ = 1, 8, 1 do
+            if (byte % 2) < 1 then
+                result = result + bit;
+            end
+            byte = byte / 2;
+            bit = bit * 2;
+        end
+        this.bytes[i] = result;
+    end
+    for i = byteCount + 1, size, 1 do
+        this.bytes[i] = 0xff;
+    end
+    bigint_rstrip(this);
+    return this;
+end
+
 function bigint:SetBits(...)
     local count = #arg;
     if count == 0 then
@@ -888,6 +961,58 @@ function bigint:GetBit(i)
 
     local bitNum = i % 8;
     return math_floor(byte / (2 ^ bitNum)) % 2;
+end
+
+-- convert 2's complement unsigned number to signed
+function bigint:CastSigned(size)
+    if self.sign == 0 then
+        return self;
+    end
+    if bigint.IsBigInt(size) then
+        size = size:ToNumber();
+    end
+
+    local byteCount = #self.bytes;
+    if byteCount > size then
+        error("twos complement overflow");
+    end
+    if self.sign == 1 and (self.bytes[size] or 0) > 0x7f then
+        local this = self:CopyIfImmutable();
+        local mutable = this.mutable;
+        this.mutable = true;
+        this = this:Bnot(size):Add(bigint.One);
+        this.sign = -1;
+        this.mutable = mutable;
+        return this;
+    end
+
+    return self;
+end
+
+-- convert 2's complement signed number to unsigned
+function bigint:CastUnsigned(size)
+    if self.sign == 0 then
+        return self;
+    end
+    if bigint.IsBigInt(size) then
+        size = size:ToNumber();
+    end
+
+    local byteCount = #self.bytes;
+    if byteCount > size then
+        error("twos complement overflow");
+    end
+    if self.sign == 1 then
+        return self;
+    end
+
+    local this = self:CopyIfImmutable();
+    local mutable = this.mutable;
+    this.mutable = true;
+    this.sign = 1;
+    this = this:Bnot(size):Add(bigint.One);
+    this.mutable = mutable;
+    return this;
 end
 
 --##### EQUALITY OPERATORS #####--
@@ -1124,7 +1249,8 @@ end
 function bigint:ToUI64()
     if bigint.internal.ui64 == nil then
         bigint.internal.ui64 = {};
-        -- bytecode for returning a UI64 constant
+        -- bytecode for returning a UI64 constant.
+        -- may be different depending on HavokScript build.
         bigint.internal.ui64Bytecode = {
             "\27LuaQ\14\0\4\b\4\4\0\3\0\0\0\0\r\0\0\0\0\0\0\0\5TNIL\0\0\0\0\1\0\0\0\tTBOOLEAN\0\0\0\0\2\0\0\0\15TLIGHTUSERDATA\0\0\0\0\3\0\0\0\bTNUMBER\0\0\0\0\4\0\0\0\bTSTRING\0\0\0\0\5\0\0\0\7TTABLE\0\0\0\0\6\0\0\0\nTFUNCTION\0\0\0\0\7\0\0\0\nTUSERDATA\0\0\0\0\b\0\0\0\bTTHREAD\0\0\0\0\t\0\0\0\11TIFUNCTION\0\0\0\0\n\0\0\0\11TCFUNCTION\0\0\0\0\11\0\0\0\6TUI64\0\0\0\0\f\0\0\0\bTSTRUCT\0\0\0\0\0\0\0\0\0\0\0\0\0\2\0\0\0\0\0\0\0\2_2\0\0\0\18\4\0\0\0\0\0\1\11",
             "CONSTANT",
@@ -1210,51 +1336,6 @@ end
 
 function bigint:IsOne()
     return self.bytes[2] == nil and self.bytes[1] == 1;
-end
-
--- calculate log2 by finding highest 1 bit
-function bigint:Log2()
-    if self.sign == 0 then
-        return nil;
-    end
-
-    local byteCount = #self.bytes;
-    local byte = self.bytes[byteCount];
-    local bitNum = (byteCount - 1) * 8;
-    while byte >= 1 do
-        bitNum = bitNum + 1;
-        byte = byte / 2;
-    end
-    return bitNum;
-end
-
--- return log2 if it's an integer, else nil
-function bigint:ExactLog2()
-    if self.sign == 0 then
-        return nil;
-    end
-
-    local i = 1;
-    local power = 0;
-    local foundOne = false;
-    while self.bytes[i] ~= nil do
-        local byte = self.bytes[i];
-        for _ = 1, 8, 1 do
-            if byte % 2 < 1 then
-                if not foundOne then
-                    power = power + 1;
-                end
-            else
-                if foundOne then
-                    return nil;
-                end
-                foundOne = true;
-            end
-            byte = byte / 2;
-        end
-        i = i + 1;
-    end
-    return power;
 end
 
 function bigint_rstrip(self)

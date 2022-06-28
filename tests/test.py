@@ -111,8 +111,15 @@ def testFromNumber(iterations=1000):
     test(0)
     test(1)
     test(256)
-    test(-0xdeadbeef)
-    for n in srandexpgen(iterations, 24):
+    precision = int(runLua("getprecision.lua").stdout)
+    if precision == 32:
+        mantissa = 24
+        test(-0xdeadbe)
+    else:
+        mantissa = 53
+        test(-0x1deadbeefdeadb)
+
+    for n in srandexpgen(iterations, mantissa):
         test(n)
 
 def testFromArray(iterations=1000):
@@ -233,7 +240,7 @@ def testPow(iterations=1000):
     test(0x100, 0x100)
     test(0xdeadbeef, 0x100)
     test(0xdeadbeef, -1)
-    for n1, n2 in zip(srandexpgen(iterations), randgen(iterations, -4, 64)):
+    for n1, n2 in zip(srandexpgen(iterations), randgen(iterations, -4, 65)):
         test(n1, n2)
 
 def testToBase(iterations=1000):
@@ -256,7 +263,14 @@ def testToNumber(iterations=1000):
     test(-1)
     test(255)
     test(256)
-    for n in srandexpgen(iterations, 24):
+    precision = int(runLua("getprecision.lua").stdout)
+    if precision == 32:
+        mantissa = 24
+        test(-0xdeadbe)
+    else:
+        mantissa = 53
+        test(-0x1deadbeefdeadb)
+    for n in srandexpgen(iterations, mantissa):
         test(n)
 
 def testToBytes(iterations=1000):
@@ -350,7 +364,7 @@ def testShl(iterations=1000):
     test(0xdeadbeef, 16)
     test(0xdeadbeef, 17)
     test(0xdeadbeef, -17)
-    for n1, n2 in zip(srandexpgen(iterations), randgen(iterations, 64)):
+    for n1, n2 in zip(srandexpgen(iterations), randgen(iterations, 65)):
         test(n1, n2)
 
 def testShr(iterations=1000):
@@ -369,7 +383,7 @@ def testShr(iterations=1000):
     test(0xdeadbeef, 16)
     test(0xdeadbeef, 17)
     test(0xdeadbeef, -17)
-    for n1, n2 in zip(srandexpgen(iterations), randgen(iterations, 64)):
+    for n1, n2 in zip(srandexpgen(iterations), randgen(iterations, 65)):
         test(n1, n2)
 
 def testSetBits(iterations=1000):
@@ -438,6 +452,51 @@ def testCompare(iterations=1000):
     for n1, n2 in zip(srandexpgen(iterations), srandexpgen(iterations)):
         test(random.choice(list(ops)), n1, n2)
 
+def testCastSigned(iterations=1000):
+    def test(n, size):
+        result = runLua("castsigned.lua", hex(n), str(size))
+        actual = str(castSigned(n, size))
+        checkTest(actual, result, hex(n) + f" cast signed, size=" + str(size))
+    test(0, 0)
+    test(0, 1)
+    test(0, 8)
+    test(1, 1)
+    test(1, 8)
+    test(-1, 1)
+    test(-1, 8)
+    test((2 ** 32) - 1, 4)
+    for n in srandexpgen(iterations):
+        byteCount = math.ceil(n.bit_length() / 8)
+        test(n, random.randrange(byteCount, 16))
+
+def testCastUnsigned(iterations=1000):
+    def test(n, size):
+        result = runLua("castunsigned.lua", hex(n), str(size))
+        actual = str(castUnsigned(n, size))
+        checkTest(actual, result, hex(n) + f" cast unsigned, size=" + str(size))
+    test(0, 0)
+    test(0, 1)
+    test(0, 8)
+    test(1, 1)
+    test(1, 8)
+    test(-1, 1)
+    test(-1, 8)
+    test((2 ** 32) - 1, 4)
+    for n in srandexpgen(iterations):
+        byteCount = math.ceil(n.bit_length() / 8)
+        test(n, random.randrange(byteCount, 16))
+
+def testLog2(iterations=1000):
+    def test(n):
+        result = runLua("log2.lua", hex(n))
+        checkTest(hex(int(math.log2(n))), result, hex(n) + " log2 ")
+    test(1)
+    test(2)
+    test(256)
+    test(0x10000000)
+    for n in randexpgen(iterations):
+        test(n + 1)
+
 def testRandgen(iterations=1000):
     for i in range(iterations):
         s = sexp.randgensexp(1, 10)
@@ -461,6 +520,7 @@ testsToRun = [
     testDiv,
     testMod,
     testPow,
+    testLog2,
     testBxor,
     testBand,
     testBor,
@@ -470,6 +530,8 @@ testsToRun = [
     testSetBits,
     testUnsetBits,
     testGetBit,
+    testCastSigned,
+    testCastUnsigned,
     testRandgen,
 ]
 
