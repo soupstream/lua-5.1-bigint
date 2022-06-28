@@ -557,6 +557,14 @@ testsToRun = [
 
 runTests(testsToRun)
 
+totalSuccesses = 0
+totalFailures = 0
 for resultItem in resultMap.values():
-    if resultItem["failures"] != 0:
-        sys.exit(1)
+    totalSuccesses += resultItem["successes"]
+    totalFailures += resultItem["failures"]
+msg = f"Total result: {totalSuccesses} / {totalFailures+totalSuccesses}"
+if totalFailures == 0:
+    printSuccess(msg)
+else:
+    printWarning(msg)
+    sys.exit(1)
