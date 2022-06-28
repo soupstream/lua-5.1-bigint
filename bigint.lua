@@ -22,12 +22,12 @@ local string_byte = string.byte;
 local string_char = string.char;
 local string_format = string.format;
 local string_dump = string.dump;
-local unpack = unpack;
+local unpack = unpack or table.unpack;
 local getmetatable = getmetatable;
 local setmetatable = setmetatable;
 local tonumber = tonumber;
 local type = type;
-local loadstring = loadstring;
+local loadstring = loadstring or load;
 
 --##### CONSTRUCTORS #####--
 
@@ -831,6 +831,11 @@ end
 function bigint:Bnot(size)
     local this = self:CopyIfImmutable();
     local byteCount = #self.bytes;
+    if size == nil then
+        size = byteCount;
+    elseif bigint.IsBigInt(size) then
+        size = size:ToNumber();
+    end
     if this.sign == 0 then
         this.bytes[1] = 0xff;
         this.sign = 1;
@@ -857,6 +862,7 @@ function bigint:Bnot(size)
 end
 
 function bigint:SetBits(...)
+    local arg = {...};
     local count = #arg;
     if count == 0 then
         return self;
@@ -903,6 +909,7 @@ function bigint:SetBits(...)
 end
 
 function bigint:UnsetBits(...)
+    local arg = {...};
     if self.sign == 0 then
         return self;
     end
@@ -1283,6 +1290,15 @@ bigint_mt = {
     __div = ensureSelfIsBigInt(bigint.Div),
     __mod = ensureSelfIsBigInt(bigint.Mod),
     __pow = ensureSelfIsBigInt(bigint.Pow),
+
+    -- not supported in 5.1
+    __idiv = ensureSelfIsBigInt(bigint.Div),
+    __band = ensureSelfIsBigInt(bigint.Band),
+    __bor = ensureSelfIsBigInt(bigint.Bor),
+    __bxor = ensureSelfIsBigInt(bigint.Bxor),
+    __bnot = function(self) return self:Bnot() end,
+    __shl = ensureSelfIsBigInt(bigint.Shl),
+    __shr = ensureSelfIsBigInt(bigint.Shr),
 };
 
 --##### HELPERS #####--

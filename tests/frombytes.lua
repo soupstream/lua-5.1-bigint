@@ -2,6 +2,8 @@
 
 local bigint, testbase = require("testbase")();
 
+local unpack = unpack or table.unpack;
+
 local arr = {};
 local littleEndian = testbase.toboolean(arg[1]);
 for i = 2, #arg, 1 do

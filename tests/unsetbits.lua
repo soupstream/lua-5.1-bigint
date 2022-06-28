@@ -2,6 +2,8 @@
 
 local bigint, testbase = require("testbase")();
 
+local unpack = unpack or table.unpack;
+
 local bits = {};
 for i = 2, #arg, 1 do
     bits[i - 1] = tonumber(arg[i]);

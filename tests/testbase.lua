@@ -69,17 +69,11 @@ function testbase.toboolean(str)
     end
 end
 function testbase.getEnv()
-    local imports = {
-        [importPath] = package.loaded[importPath],
-        ["testbase"] = package.loaded["testbase"]
-    };
-    for k, v in pairs(imports) do
-        package.loaded[k] = nil;
-    end
+    -- nil out package table to make checkEnv simpler
+    local package = package;
+    _G["package"] = nil;
     local env = testbase.dtostring(_G);
-    for k, v in pairs(imports) do
-        package.loaded[k] = v;
-    end
+    _G["package"] = package;
     return env;
 end
 function testbase.checkEnv()
@@ -98,6 +92,7 @@ end
 -- args: variable names as strings
 testbase.registeredBigInts = {};
 function testbase.register(...)
+    local arg = {...};
     local argMap = {};
     for i, v in ipairs(arg) do
         if not bigint.IsBigInt(v) then

@@ -2,6 +2,9 @@
 
 local bigint, testbase = require("testbase")();
 
+local unpack = unpack or table.unpack;
+local loadstring = loadstring or load;
+
 local binopMap = {
     ["+"] = bigint.Add,
     ["-"] = bigint.Sub,
