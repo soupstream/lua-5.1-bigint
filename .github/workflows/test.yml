@@ -25,4 +25,4 @@ jobs:
 
       - name: Run tests
         working-directory: ./tests
-        run: python test.py
+        run: python test.py 100

@@ -60,22 +60,17 @@ def runLuaWithTimeout(timeout, script, *args):
 def runLua(script, *args):
     return runLuaWithTimeout(1, script, *args);
 
-def runTests(tests):
+def runTests(tests, iterations):
     global testNames
     testNames = []
     for test in tests:
         if type(test) == tuple:
             iterations = test[1]
             test = test[0]
-        else:
-            iterations = None
 
         testNames.append(test.__name__)
         print("Running " + test.__name__)
-        if iterations == None:
-            test()
-        else:
-            test(iterations)
+        test(iterations)
 
         results = resultMap[test.__name__]
         successes = results["successes"]
@@ -86,7 +81,7 @@ def runTests(tests):
         else:
             printWarning(msg)
 
-def testFromStringHex(iterations=1000):
+def testFromStringHex(iterations):
     def test(n, strOverride=None):
         result = runLua("fromstring.lua", strOverride or hex(n))
         checkTest(hex(n), result)
@@ -99,7 +94,7 @@ def testFromStringHex(iterations=1000):
     for n in srandexpgen(iterations):
         test(n)
 
-def testFromStringBin(iterations=1000):
+def testFromStringBin(iterations):
     def test(n, strOverride=None):
         result = runLua("fromstring.lua", strOverride or bin(n))
         checkTest(hex(n), result)
@@ -112,7 +107,7 @@ def testFromStringBin(iterations=1000):
     for n in srandexpgen(iterations):
         test(n)
 
-def testFromStringBase(iterations=1000):
+def testFromStringBase(iterations):
     def test(n, base, strOverride=None):
         nstr = toBase(n, base)
         result = runLua("fromstring.lua", strOverride or nstr, str(base))
@@ -126,7 +121,7 @@ def testFromStringBase(iterations=1000):
     for n, base in zip(srandexpgen(iterations), randgen(iterations, 2, 36 + 1)):
         test(n, base)
 
-def testFromNumber(iterations=1000):
+def testFromNumber(iterations):
     def test(n):
         result = runLua("fromnumber.lua", str(n))
         checkTest(hex(n), result)
@@ -145,7 +140,7 @@ def testFromNumber(iterations=1000):
     for n in srandexpgen(iterations, mantissa):
         test(n)
 
-def testFromArray(iterations=1000):
+def testFromArray(iterations):
     def test(arr, littleEndian):
         arrStrs = [str(x) for x in arr]
         endianStr = "LE" if littleEndian else "BE"
@@ -160,7 +155,7 @@ def testFromArray(iterations=1000):
         endianness = random.choice([True, False])
         test(intToByteArray(n, endianness), endianness)
 
-def testFromBytes(iterations=1000):
+def testFromBytes(iterations):
     def test(arr, littleEndian):
         arrStrs = [str(x) for x in arr]
         endianStr = "LE" if littleEndian else "BE"
@@ -175,7 +170,7 @@ def testFromBytes(iterations=1000):
         endianness = random.choice([True, False])
         test(intToByteArray(n, endianness), endianness)
 
-def testAdd(iterations=1000):
+def testAdd(iterations):
     def test(n1, n2):
         result = runLua("add.lua", hex(n1), hex(n2))
         checkTest(hex(n1 + n2), result, hex(n1) + " + " + hex(n2))
@@ -187,7 +182,7 @@ def testAdd(iterations=1000):
     for n1, n2 in zip(srandexpgen(iterations), srandexpgen(iterations)):
         test(n1, n2)
 
-def testSub(iterations=1000):
+def testSub(iterations):
     def test(n1, n2):
         result = runLua("sub.lua", hex(n1), hex(n2))
         checkTest(hex(n1 - n2), result, hex(n1) + " - " + hex(n2))
@@ -199,7 +194,7 @@ def testSub(iterations=1000):
     for n1, n2 in zip(srandexpgen(iterations), srandexpgen(iterations)):
         test(n1, n2)
 
-def testMul(iterations=1000):
+def testMul(iterations):
     def test(n1, n2):
         result = runLua("mul.lua", hex(n1), hex(n2))
         checkTest(hex(n1 * n2), result, hex(n1) + " * " + hex(n2))
@@ -211,7 +206,7 @@ def testMul(iterations=1000):
     for n1, n2 in zip(srandexpgen(iterations), srandexpgen(iterations)):
         test(n1, n2)
 
-def testDiv(iterations=1000):
+def testDiv(iterations):
     def test(n1, n2):
         result = runLua("div.lua", hex(n1), hex(n2))
         checkTest(hex(intdiv(n1, n2)), result, hex(n1) + " / " + hex(n2))
@@ -231,7 +226,7 @@ def testDiv(iterations=1000):
     for n1, n2 in zip(srandexpgen(iterations), srandexpgen(iterations)):
         test(n1, n2)
 
-def testMod(iterations=1000):
+def testMod(iterations):
     def test(n1, n2):
         result = runLua("mod.lua", hex(n1), hex(n2))
         checkTest(hex(intmod(n1, n2)), result, hex(n1) + " % " + hex(n2))
@@ -251,7 +246,7 @@ def testMod(iterations=1000):
     for n1, n2 in zip(srandexpgen(iterations), srandexpgen(iterations)):
         test(n1, n2)
 
-def testPow(iterations=1000):
+def testPow(iterations):
     def test(n1, n2):
         result = runLua("pow.lua", hex(n1), hex(n2))
         checkTest(hex(intpow(n1, n2)), result, hex(n1) + " pow " + hex(n2))
@@ -270,7 +265,7 @@ def testPow(iterations=1000):
     for n1, n2 in zip(srandexpgen(iterations), randgen(iterations, -4, 65)):
         test(n1, n2)
 
-def testToBase(iterations=1000):
+def testToBase(iterations):
     def test(n, base):
         result = runLua("tobase.lua", hex(n), str(base))
         checkTest(toBase(n, base), result, hex(n) + " base " + str(base))
@@ -281,7 +276,7 @@ def testToBase(iterations=1000):
     for n, base in zip(srandexpgen(iterations), randgen(iterations, 2, 36 + 1)):
         test(n, base)
 
-def testToNumber(iterations=1000):
+def testToNumber(iterations):
     def test(n):
         result = runLua("tonumber.lua", hex(n))
         checkTest(str(n), result)
@@ -300,7 +295,7 @@ def testToNumber(iterations=1000):
     for n in srandexpgen(iterations, mantissa):
         test(n)
 
-def testToBytes(iterations=1000):
+def testToBytes(iterations):
     def test(n, littleEndian, size=None):
         arr = intToByteArray(n, littleEndian, size)
         arrStr = ",".join([str(x) for x in arr])
@@ -316,7 +311,7 @@ def testToBytes(iterations=1000):
     for n in srandexpgen(iterations):
         test(n, random.choice([True, False]), random.randrange(16))
 
-def testBxor(iterations=1000):
+def testBxor(iterations):
     def test(n1, n2):
         result = runLua("bxor.lua", hex(n1), hex(n2))
         checkTest(hex(ubxor(n1, n2)), result, hex(n1) + " ^ " + hex(n2))
@@ -336,7 +331,7 @@ def testBxor(iterations=1000):
     for n1, n2 in zip(srandexpgen(iterations), srandexpgen(iterations)):
         test(n1, n2)
 
-def testBand(iterations=1000):
+def testBand(iterations):
     def test(n1, n2):
         result = runLua("band.lua", hex(n1), hex(n2))
         checkTest(hex(uband(n1, n2)), result, hex(n1) + " & " + hex(n2))
@@ -356,7 +351,7 @@ def testBand(iterations=1000):
     for n1, n2 in zip(srandexpgen(iterations), srandexpgen(iterations)):
         test(n1, n2)
 
-def testBor(iterations=1000):
+def testBor(iterations):
     def test(n1, n2):
         result = runLua("bor.lua", hex(n1), hex(n2))
         checkTest(hex(ubor(n1, n2)), result, hex(n1) + " | " + hex(n2))
@@ -376,7 +371,7 @@ def testBor(iterations=1000):
     for n1, n2 in zip(srandexpgen(iterations), srandexpgen(iterations)):
         test(n1, n2)
 
-def testShl(iterations=1000):
+def testShl(iterations):
     def test(n, shift):
         result = runLua("shl.lua", hex(n), str(shift))
         checkTest(hex(ushl(n, shift)), result, hex(n) + " << " + str(shift))
@@ -394,7 +389,7 @@ def testShl(iterations=1000):
     for n1, n2 in zip(srandexpgen(iterations), randgen(iterations, 65)):
         test(n1, n2)
 
-def testShr(iterations=1000):
+def testShr(iterations):
     def test(n, shift):
         result = runLua("shr.lua", hex(n), str(shift))
         checkTest(hex(ushr(n, shift)), result, hex(n) + " >> " + str(shift))
@@ -413,7 +408,7 @@ def testShr(iterations=1000):
     for n1, n2 in zip(srandexpgen(iterations), randgen(iterations, 65)):
         test(n1, n2)
 
-def testSetBits(iterations=1000):
+def testSetBits(iterations):
     def test(n, bits):
         bitlist = [str(bit + 1) for bit in bits]
         result = runLua("setbits.lua", hex(n), *bitlist)
@@ -426,7 +421,7 @@ def testSetBits(iterations=1000):
         bits = list(randgen(random.randrange(0, 8), 0, 65))
         test(n, bits)
 
-def testUnsetBits(iterations=1000):
+def testUnsetBits(iterations):
     def test(n, bits):
         bitlist = [str(bit + 1) for bit in bits]
         result = runLua("unsetbits.lua", hex(n), *bitlist)
@@ -442,7 +437,7 @@ def testUnsetBits(iterations=1000):
         bits = list(randgen(random.randrange(0, 8), 0, 65))
         test(n, bits)
 
-def testGetBit(iterations=1000):
+def testGetBit(iterations):
     def test(n, bit):
         result = runLua("getbit.lua", hex(n), str(bit + 1))
         checkTest(str(getbit(n, bit)), result, hex(n) + " bit " + str(bit))
@@ -453,7 +448,7 @@ def testGetBit(iterations=1000):
     for n, bit in zip(srandexpgen(iterations), randgen(iterations, 0, 65)):
         test(n, bit)
 
-def testCompare(iterations=1000):
+def testCompare(iterations):
     ops = {
         "==": lambda x, y: x == y,
         "<": lambda x, y: x < y,
@@ -479,7 +474,7 @@ def testCompare(iterations=1000):
     for n1, n2 in zip(srandexpgen(iterations), srandexpgen(iterations)):
         test(random.choice(list(ops)), n1, n2)
 
-def testCastSigned(iterations=1000):
+def testCastSigned(iterations):
     def test(n, size):
         result = runLua("castsigned.lua", hex(n), str(size))
         actual = str(castSigned(n, size))
@@ -496,7 +491,7 @@ def testCastSigned(iterations=1000):
         byteCount = math.ceil(n.bit_length() / 8)
         test(n, random.randrange(byteCount, 16))
 
-def testCastUnsigned(iterations=1000):
+def testCastUnsigned(iterations):
     def test(n, size):
         result = runLua("castunsigned.lua", hex(n), str(size))
         actual = str(castUnsigned(n, size))
@@ -513,7 +508,7 @@ def testCastUnsigned(iterations=1000):
         byteCount = math.ceil(n.bit_length() / 8)
         test(n, random.randrange(byteCount, 16))
 
-def testLog2(iterations=1000):
+def testLog2(iterations):
     def test(n):
         result = runLua("log2.lua", hex(n))
         checkTest(hex(int(math.log2(n))), result, hex(n) + " log2 ")
@@ -524,7 +519,7 @@ def testLog2(iterations=1000):
     for n in randexpgen(iterations):
         test(n + 1)
 
-def testRandgen(iterations=1000):
+def testRandgen(iterations):
     for i in range(iterations):
         s = sexp.randgensexp(1, 10)
         sfmt = sexp.formatsexp(s)
@@ -562,7 +557,10 @@ testsToRun = [
     testRandgen,
 ]
 
-runTests(testsToRun)
+iterations = 1000
+if len(sys.argv) >= 2:
+    iterations = int(sys.argv[1])
+runTests(testsToRun, iterations)
 
 totalSuccesses = 0
 totalFailures = 0
