@@ -54,8 +54,11 @@ def checkTest(expected, result, expression=""):
 
     return success
 
+def runLuaWithTimeout(timeout, script, *args):
+    return subprocess.run(["./" + script, *args], encoding="utf-8", capture_output=True, timeout=timeout)
+
 def runLua(script, *args):
-    return subprocess.run(["./" + script, *args], encoding="utf-8", capture_output=True, timeout=1)
+    return runLuaWithTimeout(1, script, *args);
 
 def runTests(tests):
     global testNames
@@ -254,9 +257,13 @@ def testPow(iterations=1000):
         checkTest(hex(intpow(n1, n2)), result, hex(n1) + " pow " + hex(n2))
     test(0, 123)
     test(0, -1)
+    test(-1, 4)
     test(1, 123)
     test(123, 1)
     test(123, 0)
+    test(-123, 1)
+    test(-123, 0)
+    test(-123, -1)
     test(0x100, 0x100)
     test(0xdeadbeef, 0x100)
     test(0xdeadbeef, -1)
@@ -521,7 +528,7 @@ def testRandgen(iterations=1000):
     for i in range(iterations):
         s = sexp.randgensexp(1, 10)
         sfmt = sexp.formatsexp(s)
-        result = runLua("sexp.lua", sfmt)
+        result = runLuaWithTimeout(10, "sexp.lua", sfmt)
         checkTest(hex(sexp.executesexp(s)), result, sfmt)
 
 testsToRun = [

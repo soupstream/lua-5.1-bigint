@@ -211,6 +211,20 @@ function bigint:Abs()
     end
 end
 
+function bigint:SetSign(sign)
+    if self.sign == 0 or sign == self.sign then
+        return self;
+    elseif sign == 0 then
+        return bigint.Zero;
+    elseif sign == -1 or sign == 1 then
+        local this = self:CopyIfImmutable();
+        this.sign = sign;
+        return this;
+    else
+        error("invalid sign");
+    end
+end
+
 function bigint:Add(other)
     other = bigint_ensureBigInt(other);
 
@@ -528,9 +542,7 @@ function bigint:Pow(other)
     if power ~= nil then
         -- assumes other isn't so big that precision becomes an issue
         local shift = (other:ToNumber() - 1) * power;
-        local this = self:Shl(shift);
-        this.sign = sign;
-        return this;
+        return self:Shl(shift):SetSign(sign);
     end
 
     -- multiply by self repeatedly
