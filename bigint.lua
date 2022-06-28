@@ -1090,6 +1090,10 @@ function bigint:Eq(other)
     return self:Compare(other) == 0;
 end
 
+function bigint:Ne(other)
+    return self:Compare(other) ~= 0;
+end
+
 function bigint:Lt(other)
     return self:Compare(other) == -1;
 end
@@ -1332,6 +1336,7 @@ bigint.internal = {};
 bigint_digits = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"};
 bigint_comparatorMap = {
     ["=="] = bigint.Eq,
+    ["~="] = bigint.Ne,
     ["<"] = bigint.Lt,
     [">"] = bigint.Gt,
     ["<="] = bigint.Le,

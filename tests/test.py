@@ -451,6 +451,7 @@ def testGetBit(iterations):
 def testCompare(iterations):
     ops = {
         "==": lambda x, y: x == y,
+        "~=": lambda x, y: x != y,
         "<": lambda x, y: x < y,
         ">": lambda x, y: x > y,
         "<=": lambda x, y: x <= y,

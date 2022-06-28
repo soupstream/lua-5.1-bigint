@@ -20,7 +20,8 @@ local binopMap = {
 };
 
 local comparatorMap = {
-    ["="] = bigint.Eq,
+    ["=="] = bigint.Eq,
+    ["~="] = bigint.Ne,
     ["<"] = bigint.Lt,
     [">"] = bigint.Gt,
     ["<="] = bigint.Le,
