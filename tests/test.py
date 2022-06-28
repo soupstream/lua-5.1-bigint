@@ -4,6 +4,7 @@ import random
 import inspect
 import math
 import sexp
+import sys
 from testutils import *
 
 def findTestName():
@@ -14,6 +15,21 @@ def findTestName():
 
 resultMap = {}
 
+# ANSI color codes
+ansiReset = "\u001b[0m"
+ansiRed = "\u001b[31m"
+ansiGreen = "\u001b[32m"
+ansiYellow = "\u001b[33m"
+
+def printError(msg):
+    print(ansiRed + msg + ansiReset, file=sys.stderr)
+
+def printWarning(msg):
+    print(ansiYellow + msg + ansiReset)
+
+def printSuccess(msg):
+    print(ansiGreen + msg + ansiReset)
+
 def checkTest(expected, result, expression=""):
     if expression != "":
         expression += " == "
@@ -23,12 +39,12 @@ def checkTest(expected, result, expression=""):
         resultMap[testName] = {"successes": 0, "failures": 0}
 
     if result.returncode != 0:
-        print(f"{testName} failure: {expression}{expected} => exit {result.returncode}")
+        printError(f"{testName} failure: {expression}{expected} => exit {result.returncode}")
         if result.stderr != "":
-            print(result.stderr.strip())
+            printError(result.stderr.strip())
         success = False
     elif expected != result.stdout.strip():
-        print(f"{testName} failure: {expression}{expected} != {result.stdout.strip()}")
+        printError(f"{testName} failure: {expression}{expected} != {result.stdout.strip()}")
         success = False
 
     if success:
@@ -61,7 +77,11 @@ def runTests(tests):
         results = resultMap[test.__name__]
         successes = results["successes"]
         failures = results["failures"]
-        print(test.__name__ + f" result: {successes} / {successes+failures}")
+        msg = test.__name__ + f" result: {successes} / {successes+failures}"
+        if failures == 0:
+            printSuccess(msg)
+        else:
+            printWarning(msg)
 
 def testFromStringHex(iterations=1000):
     def test(n, strOverride=None):
@@ -536,3 +556,7 @@ testsToRun = [
 ]
 
 runTests(testsToRun)
+
+for resultItem in resultMap.values():
+    if resultItem["failures"] != 0:
+        sys.exit(1)
