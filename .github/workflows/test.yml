@@ -1,0 +1,28 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        lua_version: ['5.1', '5.2', '5.3', '5.4', 'luajit-2.0.5', 'luajit-2.1.0-beta3']
+        os: [windows-latest, ubuntu-latest, macos-latest]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Lua/LuaJIT
+        uses: leafo/gh-actions-lua@v9.1.0
+        with:
+          luaVersion: ${{ matrix.lua_version }}
+          buildCache: false
+
+      - name: Run tests
+        working-directory: ./tests
+        run: python test.py
