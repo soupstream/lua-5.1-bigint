@@ -9,6 +9,10 @@ local bigint_digits;
 local bigint_comparatorMap;
 local bigint_rstrip;
 local bigint_ensureBigInt;
+local bigint_ensureInt;
+local bigint_ensureString;
+local bigint_ensureBool;
+local bigint_ensureArray;
 local table_reverse;
 local table_copy;
 
@@ -62,6 +66,8 @@ end
 
 -- parse integer from a string
 function bigint.FromString(value, base)
+    value = bigint_ensureString(value);
+
     local self = bigint.New();
     self.sign = 1;
     local digitsStart = 1;
@@ -89,7 +95,7 @@ function bigint.FromString(value, base)
         return self;
     end
 
-    base = base or 10;
+    base = bigint_ensureInt(base, 2, 36, 10);
     if base == 2 or base == 16 then
         -- fast bin/hex parser
         local width = 8;
@@ -135,18 +141,14 @@ function bigint.FromString(value, base)
 end
 
 function bigint.FromNumber(value)
+    value = bigint_ensureInt(value);
+
     local self = bigint.New();
     if value < 0 then
-        value = math_ceil(value);
-        if value ~= 0 then
-            value = -value;
-            self.sign = -1;
-        end
+        value = -value;
+        self.sign = -1;
     elseif value > 0 then
-        value = math_floor(value);
-        if value ~= 0 then
-            self.sign = 1;
-        end
+        self.sign = 1;
     end
 
     local i = 1;
@@ -159,6 +161,9 @@ function bigint.FromNumber(value)
 end
 
 function bigint.FromArray(array, littleEndian)
+    array = bigint_ensureArray(array);
+    littleEndian = bigint_ensureBool(littleEndian, false);
+
     local self = bigint.New();
     self.bytes = table_copy(array);
     if not littleEndian then
@@ -170,6 +175,9 @@ function bigint.FromArray(array, littleEndian)
 end
 
 function bigint.FromBytes(bytes, littleEndian)
+    bytes = bigint_ensureString(bytes);
+    littleEndian = bigint_ensureBool(littleEndian, false);
+
     local self = bigint.New();
     self.bytes = {string_byte(bytes, 1, #bytes)};
     if not littleEndian then
@@ -182,6 +190,10 @@ end
 
 -- parse hex from tostring of HavokScript ui64 value
 function bigint.FromUI64(value)
+    if type(value) ~= "ui64" then
+        error("invalid argument; expected ui64");
+    end
+
     return bigint.FromString(tostring(value));
 end
 
@@ -212,6 +224,8 @@ function bigint:Abs()
 end
 
 function bigint:SetSign(sign)
+    sign = bigint_ensureInt(sign, -1, 1);
+
     if self.sign == 0 or sign == self.sign then
         return self;
     elseif sign == 0 then
@@ -220,9 +234,8 @@ function bigint:SetSign(sign)
         local this = self:CopyIfImmutable();
         this.sign = sign;
         return this;
-    else
-        error("invalid sign");
     end
+    error("invalid sign");
 end
 
 function bigint:Add(other)
@@ -393,6 +406,7 @@ end
 
 function bigint:DivWithRemainder(other, ignoreRemainder)
     other = bigint_ensureBigInt(other);
+    ignoreRemainder = bigint_ensureBool(ignoreRemainder, false);
 
     -- division of/by 0
     if self.sign == 0 then
@@ -609,9 +623,8 @@ end
 --##### BITWISE OPERATORS #####--
 
 function bigint:Shr(n)
-    if bigint.IsBigInt(n) then
-        n = n:ToNumber();
-    end
+    n = bigint_ensureInt(n);
+
     if self.sign == 0 or n == 0 then
         return self;
     end
@@ -661,9 +674,8 @@ function bigint:Shr(n)
 end
 
 function bigint:Shl(n)
-    if bigint.IsBigInt(n) then
-        n = n:ToNumber();
-    end
+    n = bigint_ensureInt(n);
+
     if self.sign == 0 or n == 0 then
         return self;
     end
@@ -843,11 +855,7 @@ end
 function bigint:Bnot(size)
     local this = self:CopyIfImmutable();
     local byteCount = #self.bytes;
-    if size == nil then
-        size = byteCount;
-    elseif bigint.IsBigInt(size) then
-        size = size:ToNumber();
-    end
+    size = bigint_ensureInt(size, 1, nil, byteCount);
     if this.sign == 0 then
         this.bytes[1] = 0xff;
         this.sign = 1;
@@ -883,38 +891,33 @@ function bigint:SetBits(...)
     local this;
     local byteCount = #self.bytes;
     for i = 1, count, 1 do
-        local bit = arg[i];
-        if bigint.IsBigInt(n) then
-            bit = bit:ToNumber();
-        end
+        local bit = bigint_ensureInt(arg[i], 1);
         bit = bit - 1;
-        if bit >= 0 then
-            local byteNum = math_floor(bit / 8) + 1;
-            if byteNum > byteCount then
-                if this == nil then
-                    -- lazy copy
-                    this = self:CopyIfImmutable();
-                    if this.sign == 0 then
-                        this.sign = 1;
-                    end
+        local byteNum = math_floor(bit / 8) + 1;
+        if byteNum > byteCount then
+            if this == nil then
+                -- lazy copy
+                this = self:CopyIfImmutable();
+                if this.sign == 0 then
+                    this.sign = 1;
                 end
-                for j = byteCount + 1, byteNum, 1 do
-                    this.bytes[j] = 0;
-                end
-                byteCount = byteNum;
             end
-            local byte = (this or self).bytes[byteNum];
-            local bitNum = 2 ^ (bit % 8);
-            if (byte / bitNum) % 2 < 1 then
-                if this == nil then
-                    -- lazy copy
-                    this = self:CopyIfImmutable();
-                    if this.sign == 0 then
-                        this.sign = 1;
-                    end
-                end
-                this.bytes[byteNum] = byte + bitNum;
+            for j = byteCount + 1, byteNum, 1 do
+                this.bytes[j] = 0;
             end
+            byteCount = byteNum;
+        end
+        local byte = (this or self).bytes[byteNum];
+        local bitNum = 2 ^ (bit % 8);
+        if (byte / bitNum) % 2 < 1 then
+            if this == nil then
+                -- lazy copy
+                this = self:CopyIfImmutable();
+                if this.sign == 0 then
+                    this.sign = 1;
+                end
+            end
+            this.bytes[byteNum] = byte + bitNum;
         end
     end
     return this or self;
@@ -932,23 +935,18 @@ function bigint:UnsetBits(...)
 
     local this;
     for i = 1, count, 1 do
-        local bit = arg[i];
-        if bigint.IsBigInt(n) then
-            bit = bit:ToNumber();
-        end
+        local bit = bigint_ensureInt(arg[i], 1);
         bit = bit - 1;
-        if bit >= 0 then
-            local byteNum = math_floor(bit / 8) + 1;
-            local byte = (this or self).bytes[byteNum];
-            if byte ~= nil then
-                local bitNum = 2 ^ (bit % 8);
-                if (byte / bitNum) % 2 >= 1 then
-                    if this == nil then
-                        -- lazy copy
-                        this = self:CopyIfImmutable();
-                    end
-                    this.bytes[byteNum] = byte - bitNum;
+        local byteNum = math_floor(bit / 8) + 1;
+        local byte = (this or self).bytes[byteNum];
+        if byte ~= nil then
+            local bitNum = 2 ^ (bit % 8);
+            if (byte / bitNum) % 2 >= 1 then
+                if this == nil then
+                    -- lazy copy
+                    this = self:CopyIfImmutable();
                 end
+                this.bytes[byteNum] = byte - bitNum;
             end
         end
     end
@@ -961,9 +959,7 @@ function bigint:UnsetBits(...)
 end
 
 function bigint:GetBit(i)
-    if bigint.IsBigInt(i) then
-        i = i:ToNumber();
-    end
+    i = bigint_ensureInt(i, 1);
     if i < 1 then
         return nil;
     end
@@ -984,14 +980,13 @@ end
 
 -- convert 2's complement unsigned number to signed
 function bigint:CastSigned(size)
+    local byteCount = #self.bytes;
+    size = bigint_ensureInt(size, 1, nil, byteCount);
+
     if self.sign == 0 then
         return self;
     end
-    if bigint.IsBigInt(size) then
-        size = size:ToNumber();
-    end
 
-    local byteCount = #self.bytes;
     if byteCount > size then
         error("twos complement overflow");
     end
@@ -1010,14 +1005,13 @@ end
 
 -- convert 2's complement signed number to unsigned
 function bigint:CastUnsigned(size)
+    local byteCount = #self.bytes;
+    size = bigint_ensureInt(size, 1, nil, byteCount);
+
     if self.sign == 0 then
         return self;
     end
-    if bigint.IsBigInt(size) then
-        size = size:ToNumber();
-    end
 
-    local byteCount = #self.bytes;
     if byteCount > size then
         error("twos complement overflow");
     end
@@ -1083,7 +1077,11 @@ function bigint:Compare(other)
 end
 
 function bigint:CompareOp(other, op)
-    return bigint_comparatorMap[op](self, other);
+    local comparator = bigint_comparatorMap[op];
+    if comparator == nil then
+        error("invalid argument; expected comparison operator");
+    end
+    return comparator(self, other);
 end
 
 function bigint:Eq(other)
@@ -1114,10 +1112,11 @@ end
 
 -- convert to string of bytes
 function bigint:ToBytes(size, littleEndian)
+    littleEndian = bigint_ensureBool(littleEndian, false);
     -- avoid copying array
     local bytes = self.bytes;
     local byteCount = #bytes;
-    size = size or byteCount;
+    size = bigint_ensureInt(size, 1, nil, byteCount);
     if byteCount < size then
         for i = byteCount + 1, size, 1 do
             bytes[i] = 0;
@@ -1157,6 +1156,8 @@ end
 
 -- fast hex base conversion
 function bigint:ToHex(noPrefix)
+    noPrefix = bigint_ensureBool(noPrefix, false);
+
     if self.sign == 0 then
         if noPrefix then
             return "0";
@@ -1179,6 +1180,8 @@ end
 
 -- fast bin base conversion
 function bigint:ToBin(noPrefix)
+    noPrefix = bigint_ensureBool(noPrefix, false);
+
     if self.sign == 0 then
         if noPrefix then
             return "0";
@@ -1221,9 +1224,7 @@ end
 
 -- general base conversion
 function bigint:ToBase(base)
-    if bigint.IsBigInt(base) then
-        base = base:ToNumber();
-    end
+    base = bigint_ensureInt(base, 1, 36);
 
     if base == 2 then
         return self:ToBin(true);
@@ -1319,30 +1320,6 @@ bigint_mt = {
 
 --##### HELPERS #####--
 
-bigint.Zero = bigint.New();
-bigint.One = bigint.FromNumber(1);
-bigint.NegOne = bigint.FromNumber(-1);
-bigint.Two = bigint.FromNumber(2);
-
--- determine the max accurate integer supported by this build of Lua
-if 0x1000000 == 0x1000001 then
-    bigint.MaxNumber = bigint.FromString("0xffffff");           -- max integer that can be accurately represented by a float
-else
-    bigint.MaxNumber = bigint.FromString("0x1FFFFFFFFFFFFF");   -- double
-end
-
-bigint.internal = {};
-
-bigint_digits = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"};
-bigint_comparatorMap = {
-    ["=="] = bigint.Eq,
-    ["~="] = bigint.Ne,
-    ["<"] = bigint.Lt,
-    [">"] = bigint.Gt,
-    ["<="] = bigint.Le,
-    [">="] = bigint.Ge
-};
-
 function bigint:Copy()
     local copy = bigint.New();
     table_copy(copy.bytes, self.bytes);
@@ -1390,6 +1367,58 @@ function bigint_ensureBigInt(obj)
     end
 end
 
+function bigint_ensureInt(obj, minValue, maxValue, default)
+    if obj == nil and default ~= nil then
+        return default;
+    end
+    if getmetatable(obj) == bigint_mt then
+        obj = obj:ToNumber();
+    end
+    if type(obj) == "number" then
+        if obj % 1 ~= 0 then
+            if obj < 0 then
+                obj = obj + (obj % 1);
+            else
+                obj = obj - (obj % 1);
+            end
+        end
+        if (minValue == nil or obj >= minValue) and (maxValue == nil or obj <= maxValue) then
+            return obj;
+        end
+    end
+    error("invalid argument; expected integer in range [" .. (minValue or "") .. ", " .. (maxValue or "") .. "]");
+end
+
+function bigint_ensureArray(obj, default)
+    if obj == nil and default ~= nil then
+        return default;
+    end
+    if type(obj) == "table" and getmetatable(obj) ~= bigint_mt then
+        return obj;
+    end
+    error("invalid argument; expected array");
+end
+
+function bigint_ensureString(obj, default)
+    if obj == nil and default ~= nil then
+        return default;
+    end
+    if type(obj) == "string" then
+        return obj;
+    end
+    error("invalid argument; expected string");
+end
+
+function bigint_ensureBool(obj, default)
+    if obj == nil and default ~= nil then
+        return default;
+    end
+    if type(obj) == "boolean" then
+        return obj;
+    end
+    error("invalid argument; expected boolean");
+end
+
 function table_reverse(t)
     local size = #t;
     local mid = #t / 2;
@@ -1417,6 +1446,30 @@ function table_copy(t1, t2)
             t1[i] = t2[i];
         end
     end
+end
+
+bigint.internal = {};
+
+bigint_digits = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"};
+bigint_comparatorMap = {
+    ["=="] = bigint.Eq,
+    ["~="] = bigint.Ne,
+    ["<"] = bigint.Lt,
+    [">"] = bigint.Gt,
+    ["<="] = bigint.Le,
+    [">="] = bigint.Ge
+};
+
+bigint.Zero = bigint.New();
+bigint.One = bigint.FromNumber(1);
+bigint.NegOne = bigint.FromNumber(-1);
+bigint.Two = bigint.FromNumber(2);
+
+-- determine the max accurate integer supported by this build of Lua
+if 0x1000000 == 0x1000001 then
+    bigint.MaxNumber = bigint.FromString("0xffffff");           -- max integer that can be accurately represented by a float
+else
+    bigint.MaxNumber = bigint.FromString("0x1FFFFFFFFFFFFF");   -- double
 end
 
 bigint = setmetatable(bigint, {
