@@ -57,8 +57,6 @@ function bigint.Construct(value, base)
         else
             return bigint.FromArray(value);
         end
-    elseif valueType == "ui64" then
-        return bigint.FromUI64(value);
     else
         error("cannot construct bigint from type: " .. type(value));
     end
@@ -186,15 +184,6 @@ function bigint.FromBytes(bytes, littleEndian)
     self.sign = 1;
     bigint_rstrip(self);
     return self;
-end
-
--- parse hex from tostring of HavokScript ui64 value
-function bigint.FromUI64(value)
-    if type(value) ~= "ui64" then
-        error("invalid argument; expected ui64");
-    end
-
-    return bigint.FromString(tostring(value));
 end
 
 function bigint.IsBigInt(obj)
@@ -1267,27 +1256,6 @@ function bigint:ToBase(base)
         result = "-" .. result;
     end
     return result;
-end
-
--- converts to HavokScript UI64 type
-function bigint:ToUI64()
-    if bigint.internal.ui64 == nil then
-        bigint.internal.ui64 = {};
-        -- bytecode for returning a UI64 constant.
-        -- may be different depending on HavokScript build.
-        bigint.internal.ui64Bytecode = {
-            "\27LuaQ\14\0\4\b\4\4\0\3\0\0\0\0\r\0\0\0\0\0\0\0\5TNIL\0\0\0\0\1\0\0\0\tTBOOLEAN\0\0\0\0\2\0\0\0\15TLIGHTUSERDATA\0\0\0\0\3\0\0\0\bTNUMBER\0\0\0\0\4\0\0\0\bTSTRING\0\0\0\0\5\0\0\0\7TTABLE\0\0\0\0\6\0\0\0\nTFUNCTION\0\0\0\0\7\0\0\0\nTUSERDATA\0\0\0\0\b\0\0\0\bTTHREAD\0\0\0\0\t\0\0\0\11TIFUNCTION\0\0\0\0\n\0\0\0\11TCFUNCTION\0\0\0\0\11\0\0\0\6TUI64\0\0\0\0\f\0\0\0\bTSTRUCT\0\0\0\0\0\0\0\0\0\0\0\0\0\2\0\0\0\0\0\0\0\2_2\0\0\0\18\4\0\0\0\0\0\1\11",
-            "CONSTANT",
-            "\0\0\0\0\0\0\0\0\0\0\0\1\0\0\0\0\0\0\0\0"
-        };
-    end
-    bigint.internal.ui64Bytecode[2] = self:ToBytes(8);
-    local f = loadstring(table_concat(bigint.internal.ui64Bytecode));
-    if f == nil then
-        error("loadstring returned nil");
-    else
-        return f();
-    end
 end
 
 --##### METATABLE #####--

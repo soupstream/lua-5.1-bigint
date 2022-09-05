@@ -7,8 +7,8 @@ An implementation of arbitrary length integers in pure Lua.
 - Implements arithmetic operators: addition, subtraction, multiplication, division, power, unary minus, log2
 - Implements bitwise operators: and, or, xor, not, shift left, shift right, set bits, unset bits, get bit, 2's complement
 - Implements all comparison operators
-- Construct from Lua number, string with base, array of bytes, string of bytes, ui64
-- Convert to Lua number, string with base, string of bytes, little-endian string of bytes, ui64
+- Construct from Lua number, string with base, array of bytes, string of bytes
+- Convert to Lua number, string with base, string of bytes, little-endian string of bytes
 - Reasonably fast
 - Compatible with Lua 5.1+
 
@@ -50,7 +50,6 @@ Constructors:
 - `bigint.FromNumber(val: number): bigint`: constructs from a native Lua number
 - `bigint.FromArray(val: array, [littleEndian: bool = false]): bigint`: constructs from an array of bytes
 - `bigint.FromBytes(val: string, [littleEndian: bool = false]): bigint`: constructs from a string of bytes
-- `bigint.FromUI64(val: ui64): bigint`: constructs from a ui64 value (HavokScript)
 
 Converters:
 
@@ -59,7 +58,6 @@ Converters:
 - `bigint:ToHex([noPrefix: bool = false]): string`: converts to a hexadecimal string
 - `bigint:ToBin([noPrefix: bool = false]): string`: converts to a binary string
 - `bigint:ToBase(base: number): string`: converts to a string with the specified base
-- `bigint:ToUI64(): ui64`: converts to a ui64 value (HavokScript)
 
 Arithmetic operators:
 
