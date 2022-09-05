@@ -1143,6 +1143,10 @@ function bigint:ToNumber()
     return total * self.sign;
 end
 
+function bigint:ToBool()
+    return self.sign ~= 0;
+end
+
 -- fast hex base conversion
 function bigint:ToHex(noPrefix)
     noPrefix = bigint_ensureBool(noPrefix, false);

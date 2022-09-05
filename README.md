@@ -55,6 +55,7 @@ Converters:
 
 - `bigint:ToBytes([size: number], [littleEndian: bool = false]): string`: converts to a string of bytes
 - `bigint:ToNumber(): number`: converts to a native Lua number
+- `bigint:ToBool(): bool`: converts to a boolean
 - `bigint:ToHex([noPrefix: bool = false]): string`: converts to a hexadecimal string
 - `bigint:ToBin([noPrefix: bool = false]): string`: converts to a binary string
 - `bigint:ToBase(base: number): string`: converts to a string with the specified base
