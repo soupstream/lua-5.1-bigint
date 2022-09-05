@@ -1275,6 +1275,9 @@ bigint_mt = {
     __div = ensureSelfIsBigInt(bigint.Div),
     __mod = ensureSelfIsBigInt(bigint.Mod),
     __pow = ensureSelfIsBigInt(bigint.Pow),
+    __eq = ensureSelfIsBigInt(bigint.Eq),
+    __lt = ensureSelfIsBigInt(bigint.Lt),
+    __le = ensureSelfIsBigInt(bigint.Le),
 
     -- not supported in 5.1
     __idiv = ensureSelfIsBigInt(bigint.Div),
